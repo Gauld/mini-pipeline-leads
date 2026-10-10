@@ -187,16 +187,22 @@ create trigger trg_lead_welcome_email
 
 -- 3e. ANTIABUSO DEL FORMULARIO PÚBLICO ---------------
 
--- Un email = un lead. Un reenvío no crea otro lead ni otro correo de bienvenida.
+-- Un lead por combinación (email, oposición): la misma persona puede interesarse en varias
+-- oposiciones, pero un reenvío de la misma combinación no crea otro lead ni otro correo.
+-- Sustituye al índice anterior de solo email (leads_email_lower_key), si existe.
 -- Si ya hay duplicados no se crea el índice (hay que depurarlos a mano antes).
+drop index if exists public.leads_email_lower_key;
+
 do $$
 begin
-  if exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'leads_email_lower_key') then
+  if exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'leads_email_opposition_key') then
     null;
-  elsif exists (select 1 from public.leads group by lower(email) having count(*) > 1) then
-    raise notice 'leads_email_lower_key NO creado: hay emails duplicados. Depúralos y vuelve a ejecutar.';
+  elsif exists (
+    select 1 from public.leads group by lower(email), target_opposition having count(*) > 1
+  ) then
+    raise notice 'leads_email_opposition_key NO creado: hay duplicados (email, oposición). Depúralos y vuelve a ejecutar.';
   else
-    create unique index leads_email_lower_key on public.leads (lower(email));
+    create unique index leads_email_opposition_key on public.leads (lower(email), target_opposition);
   end if;
 end $$;
 
