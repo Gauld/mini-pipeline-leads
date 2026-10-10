@@ -91,10 +91,10 @@ export async function createLead(formData: FormData) {
     consent_text_version: CONSENT_TEXT_VERSION,
   })
 
-  // 23505 = combinación (email, oposición) ya registrada (índice único). Se responde "éxito"
-  // sin crear nada: no se revela qué emails existen y no se reenvía correo.
+  // 23505 = combinación (email, oposición) ya registrada (índice único). No se crea nada ni se
+  // reenvía correo; se avisa de que la solicitud ya está en revisión.
   if (leadError?.code === '23505') {
-    return { success: true }
+    return { success: true, alreadyRegistered: true }
   }
 
   if (leadError) {

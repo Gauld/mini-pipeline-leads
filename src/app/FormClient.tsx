@@ -24,7 +24,7 @@ function RequiredMark() {
 
 interface FormClientProps {
   oppositions: TargetOpposition[]
-  createLead: (formData: FormData) => Promise<{ success: boolean; error?: string }>
+  createLead: (formData: FormData) => Promise<{ success: boolean; error?: string; alreadyRegistered?: boolean }>
 }
 
 export default function FormClient({ oppositions, createLead }: FormClientProps) {
@@ -44,7 +44,11 @@ export default function FormClient({ oppositions, createLead }: FormClientProps)
     // El token de Turnstile es de un solo uso: hay que pedir otro tras cada intento.
     window.turnstile?.reset()
 
-    if (result.success) {
+    if (result.success && result.alreadyRegistered) {
+      setMessage({ type: 'success', text: 'Esta solicitud ya está en revisión. Nos pondremos en contacto contigo pronto.' })
+      setSelectedOpposition('')
+      ;(event.target as HTMLFormElement).reset()
+    } else if (result.success) {
       setMessage({ type: 'success', text: '¡Solicitud enviada con éxito! Nos pondremos en contacto contigo pronto.' })
       setSelectedOpposition('')
       ;(event.target as HTMLFormElement).reset()
