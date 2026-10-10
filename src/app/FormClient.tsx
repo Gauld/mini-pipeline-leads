@@ -1,7 +1,26 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
+import Script from 'next/script'
+import { LEGAL } from '@/lib/legal/company'
 import { TargetOpposition } from '@/types'
+
+declare global {
+  interface Window {
+    turnstile?: { reset: () => void }
+  }
+}
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
+function RequiredMark() {
+  return (
+    <span className="required-mark" aria-hidden="true">
+      *
+    </span>
+  )
+}
 
 interface FormClientProps {
   oppositions: TargetOpposition[]
@@ -22,6 +41,8 @@ export default function FormClient({ oppositions, createLead }: FormClientProps)
     const result = await createLead(formData)
 
     setLoading(false)
+    // El token de Turnstile es de un solo uso: hay que pedir otro tras cada intento.
+    window.turnstile?.reset()
 
     if (result.success) {
       setMessage({ type: 'success', text: '¡Solicitud enviada con éxito! Nos pondremos en contacto contigo pronto.' })
@@ -36,58 +57,70 @@ export default function FormClient({ oppositions, createLead }: FormClientProps)
     <>
       {message && (
         <div
-          className={`p-4 rounded-lg mb-6 text-sm ${
-            message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-              : 'bg-rose-50 text-rose-700 border border-rose-200'
-          }`}
+          className={`alert ${message.type === 'success' ? 'alert-success' : 'alert-error'}`}
         >
           {message.text}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="form-stack">
+        <p className="form-hint">
+          Los campos marcados con <span className="required-mark">*</span> son obligatorios.
+        </p>
+
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Nombre completo</label>
+          <label htmlFor="full_name" className="form-label">
+            Nombre completo <RequiredMark />
+          </label>
           <input
+            id="full_name"
             type="text"
             name="full_name"
             required
             placeholder="Ej. Juan Pérez"
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800"
+            className="field"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Correo electrónico</label>
+          <label htmlFor="email" className="form-label">
+            Correo electrónico <RequiredMark />
+          </label>
           <input
+            id="email"
             type="email"
             name="email"
             required
             placeholder="juan@ejemplo.com"
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800"
+            className="field"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
+          <label htmlFor="phone" className="form-label">
+            Teléfono <RequiredMark />
+          </label>
           <input
+            id="phone"
             type="tel"
             name="phone"
             required
             placeholder="+34 600 000 000"
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800"
+            className="field"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Oposición de interés</label>
+          <label htmlFor="target_opposition" className="form-label">
+            Oposición de interés <RequiredMark />
+          </label>
           <select
+            id="target_opposition"
             name="target_opposition"
             required
             value={selectedOpposition}
             onChange={(e) => setSelectedOpposition(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 bg-white"
+            className="field"
           >
             <option value="" disabled>Selecciona una oposición...</option>
             {oppositions.map((item) => (
@@ -101,21 +134,69 @@ export default function FormClient({ oppositions, createLead }: FormClientProps)
 
         {selectedOpposition === 'Otros' && (
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Especifica tu oposición</label>
+            <label htmlFor="other_target_opposition" className="form-label">
+              Especifica tu oposición <RequiredMark />
+            </label>
             <input
+              id="other_target_opposition"
               type="text"
               name="other_target_opposition"
               required
               placeholder="Escribe el nombre de la oposición..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800"
+              className="field"
             />
           </div>
+        )}
+
+        {/* Información básica por capas (RGPD art. 13) + consentimientos SEPARADOS. */}
+        <div className="legal-box">
+          <p>
+            <strong>Información básica sobre protección de datos.</strong> Responsable: {LEGAL.name}.
+            Finalidad: atender tu solicitud de información. Legitimación: tu petición y, para
+            comunicaciones comerciales, tu consentimiento. Destinatarios: proveedores de alojamiento y
+            correo (encargados del tratamiento). Derechos: acceso, rectificación, supresión, oposición,
+            limitación y portabilidad, escribiendo a {LEGAL.email}. Más información en la{' '}
+            <Link href="/privacidad" target="_blank" className="text-link">
+              política de privacidad
+            </Link>
+            .
+          </p>
+
+          <label className="flex items-start gap-2">
+            <input type="checkbox" name="accept_privacy" required className="mt-0.5" />
+            <span>
+              He leído y acepto la política de privacidad. <RequiredMark />
+            </span>
+          </label>
+
+          <label className="flex items-start gap-2">
+            <input type="checkbox" name="consent_marketing" className="mt-0.5" />
+            <span>
+              Quiero recibir comunicaciones comerciales por correo electrónico (opcional). Puedo
+              retirar este consentimiento en cualquier momento.
+            </span>
+          </label>
+        </div>
+
+        {/* Honeypot: invisible para personas; los bots suelen rellenarlo. */}
+        <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+          <label>
+            No rellenar
+            <input type="text" name="website" tabIndex={-1} autoComplete="off" defaultValue="" />
+          </label>
+        </div>
+
+        {TURNSTILE_SITE_KEY && (
+          <>
+            <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
+            <div className="cf-turnstile" data-sitekey={TURNSTILE_SITE_KEY} />
+          </>
         )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50 mt-2"
+          className="btn btn-accent btn-block"
         >
           {loading ? 'Enviando...' : 'Enviar solicitud'}
         </button>

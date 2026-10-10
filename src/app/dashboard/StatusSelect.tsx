@@ -23,6 +23,7 @@ export default function StatusSelect({ leadId, currentStatusId, statuses }: Stat
     if (result.success) {
       setStatusId(newStatusId)
     } else {
+      // En conflicto la acción ya revalidó el panel: la lista se vuelve a pintar con el estado real.
       alert('Error al actualizar el estado: ' + result.error)
     }
   }

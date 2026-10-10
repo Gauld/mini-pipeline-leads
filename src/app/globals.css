@@ -10,6 +10,14 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Tokens de la parte pública. */
+  --color-brand: #0095c8;
+  --color-brand-dark: #007ba3;
+  --color-accent: #ffae00;
+  --color-accent-dark: #e69c00;
+  --color-ink: #1a1a1a;
+  --color-required: #dc2626;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,4 +31,127 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Parte pública: tipografía, botones y selectores. No se usa en /dashboard ni /login. */
+@layer components {
+  .public-theme {
+    font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+    color: var(--color-ink);
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold uppercase tracking-wide transition-colors cursor-pointer;
+    @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  /* Acción principal: azul de marca. */
+  .btn-primary {
+    @apply bg-brand text-white hover:bg-brand-dark;
+  }
+  /* CTA destacado: ámbar con texto negro (contraste AA). */
+  .btn-accent {
+    @apply bg-accent text-ink shadow-md shadow-accent/30 hover:bg-accent-dark;
+  }
+  /* Acción neutra. */
+  .btn-dark {
+    @apply bg-ink text-white hover:bg-black;
+  }
+  /* Secundario: borde oscuro sobre blanco. */
+  .btn-outline {
+    @apply border-2 border-ink bg-white text-ink hover:bg-slate-100;
+  }
+
+  /* Inputs y selectores. */
+  .field {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-ink;
+    @apply focus:border-brand focus:outline-2 focus:outline-brand/30;
+    @apply disabled:opacity-50;
+  }
+  select.field {
+    @apply cursor-pointer;
+  }
+
+  .btn-block {
+    @apply w-full mt-2;
+  }
+
+  /* Estructura de página y tarjeta. */
+  .page {
+    @apply min-h-screen bg-slate-50 p-4;
+  }
+  .page-center {
+    @apply flex items-center justify-center;
+  }
+  .card {
+    @apply w-full max-w-md rounded-xl border border-slate-100 bg-white p-8 shadow-md;
+  }
+  .page-title {
+    @apply mb-2 text-center text-2xl font-bold text-ink;
+  }
+  .page-subtitle {
+    @apply mb-6 text-center text-sm text-slate-500;
+  }
+
+  /* Formulario. */
+  .form-stack {
+    @apply space-y-4;
+  }
+  .form-label {
+    @apply mb-1 block text-sm font-medium text-slate-700;
+  }
+  .required-mark {
+    @apply ml-0.5 text-required;
+  }
+  .form-hint {
+    @apply text-xs text-slate-500;
+  }
+  .legal-box {
+    @apply space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600;
+  }
+  .text-link {
+    @apply font-medium text-brand-dark underline;
+  }
+
+  /* Mensajes de estado. */
+  .alert {
+    @apply mb-6 rounded-lg border p-4 text-sm;
+  }
+  .alert-success {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-700;
+  }
+  .alert-error {
+    @apply border-rose-200 bg-rose-50 text-rose-700;
+  }
+  .notice-warning {
+    @apply mb-4 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800;
+  }
+
+  /* Pie de página con enlaces legales. */
+  .footer-links {
+    @apply mt-6 text-center text-xs text-slate-400;
+  }
+  .footer-links a {
+    @apply underline;
+  }
+
+  /* Documento legal (aviso legal, privacidad). */
+  .legal-doc {
+    @apply mx-auto my-8 max-w-2xl rounded-xl border border-slate-100 bg-white p-8 text-sm leading-relaxed text-slate-700 shadow-md;
+  }
+  .legal-doc h1 {
+    @apply mb-1 text-2xl font-bold text-ink;
+  }
+  .legal-doc h2 {
+    @apply mb-2 mt-6 text-base font-semibold text-ink;
+  }
+  .legal-doc p {
+    @apply mb-3;
+  }
+  .legal-meta {
+    @apply text-xs text-slate-500;
+  }
+  .legal-doc li {
+    @apply ml-5 list-disc;
+  }
 }

@@ -1,13 +1,34 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { connection } from 'next/server'
 import { logout } from '@/app/actions/auth'
-import { Lead } from '@/types'
+import Link from 'next/link'
+import { filterLeads } from '@/lib/leads/filter-leads'
+import { logError } from '@/lib/logging/log-error'
 import StatusSelect from './StatusSelect'
 import LeadHistoryModal from './LeadHistoryModal'
+import FollowUpButton from './FollowUpButton'
 
 export const instant = false
 
-export default async function DashboardPage() {
+const firstValue = (value: string | string[] | undefined) =>
+  (Array.isArray(value) ? value[0] : value) ?? ''
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  // Panel autenticado: se renderiza por request. Supabase compara la expiración
+  // del token con Date.now(), valor inestable que Cache Components no permite prerenderizar.
+  await connection()
+
+  const params = await searchParams
+  const name = firstValue(params.name)
+  const email = firstValue(params.email)
+  const phone = firstValue(params.phone)
+  const statusId = firstValue(params.status)
+
   const supabase = await createClient()
 
   // 1. Verificación de autenticación de administrador
@@ -20,21 +41,30 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  // 2. Obtener estados configurados
-  const { data: statuses } = await supabase
+  // 2. Obtener estados configurados y leads
+  const { data: statuses, error: statusesError } = await supabase
     .from('lead_statuses')
     .select('*')
     .order('position', { ascending: true })
 
-  // 3. Obtener lista de leads
-  const { data: leads } = await supabase
+  const { data: templates, error: templatesError } = await supabase
+    .from('email_templates')
+    .select('*')
+
+  const { data: leads, error: leadsError } = await supabase
     .from('leads')
-    .select('*, lead_statuses(*)')
+    .select('*')
     .order('created_at', { ascending: false })
+
+  const queryError = statusesError ?? templatesError ?? leadsError
+  if (queryError) await logError('dashboard.page.query', queryError)
+
+  const filteredLeads = filterLeads(leads ?? [], { statusId, name, email, phone })
+  const hasFilters = Boolean(statusId || name || email || phone)
 
   return (
     <div className="min-h-screen bg-slate-100 p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-full mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">
@@ -50,6 +80,20 @@ export default async function DashboardPage() {
               Total Leads: {leads?.length || 0}
             </span>
 
+            <Link
+              href="/dashboard/plantillas"
+              className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 bg-white hover:bg-blue-50 border border-slate-200 rounded-lg transition-colors"
+            >
+              Plantillas de email
+            </Link>
+
+            <Link
+              href="/dashboard/configuracion"
+              className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 bg-white hover:bg-blue-50 border border-slate-200 rounded-lg transition-colors"
+            >
+              Configuración de email
+            </Link>
+
             <form action={logout}>
               <button
                 type="submit"
@@ -61,76 +105,130 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white shadow rounded-lg overflow-hidden border border-slate-200">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
+        <form
+          method="get"
+          className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5"
+        >
+          <input
+            type="text"
+            name="name"
+            defaultValue={name}
+            placeholder="Nombre"
+            aria-label="Filtrar por nombre"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
+          />
+          <input
+            type="text"
+            name="email"
+            defaultValue={email}
+            placeholder="Correo"
+            aria-label="Filtrar por correo"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
+          />
+          <input
+            type="text"
+            name="phone"
+            defaultValue={phone}
+            placeholder="Teléfono"
+            aria-label="Filtrar por teléfono"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
+          />
+          <select
+            name="status"
+            defaultValue={statusId}
+            aria-label="Filtrar por estado"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
+          >
+            <option value="">Todos los estados</option>
+            {(statuses ?? []).map((status) => (
+              <option key={status.id} value={status.id}>
+                {status.name}
+              </option>
+            ))}
+          </select>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="flex-1 rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+            >
+              Filtrar
+            </button>
+            {hasFilters && (
+              <Link
+                href="/dashboard"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Limpiar
+              </Link>
+            )}
+          </div>
+        </form>
+
+        <p className="mb-2 text-xs text-slate-500">
+          Mostrando {filteredLeads.length} de {leads?.length || 0}
+        </p>
+
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Nombre completo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Contacto
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Oposición de interés
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Fecha
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Acciones
-                </th>
+                <th className="px-4 py-3 font-medium">Nombre</th>
+                <th className="px-4 py-3 font-medium">Correo</th>
+                <th className="px-4 py-3 font-medium">Teléfono</th>
+                <th className="px-4 py-3 font-medium">Oposición</th>
+                <th className="px-4 py-3 font-medium">Estado</th>
+                <th className="px-4 py-3 font-medium">Alta</th>
+                <th className="px-4 py-3 font-medium">Acciones</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-slate-200 text-sm text-slate-700">
-              {leads && leads.length > 0 ? (
-                leads.map((lead: Lead) => (
-                  <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-900">
-                      {lead.full_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-slate-800">{lead.email}</div>
-                      <div className="text-xs text-slate-500">{lead.phone}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 bg-slate-100 rounded text-slate-700 font-medium text-xs">
-                        {lead.target_opposition}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusSelect
-                        leadId={lead.id}
-                        currentStatusId={lead.status_id}
-                        statuses={statuses || []}
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-slate-500 text-xs">
-                      {new Date(lead.created_at).toLocaleDateString('es-ES', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-xs">
-                      <LeadHistoryModal
-                        leadId={lead.id}
-                        leadName={lead.full_name}
-                        statuses={statuses || []}
-                      />
-                    </td>
-                  </tr>
-                ))
-              ) : (
+            <tbody className="divide-y divide-slate-100">
+              {filteredLeads.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
-                    No hay registros de leads todavía.
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                    Sin leads
                   </td>
                 </tr>
               )}
+
+              {filteredLeads.map((lead) => (
+                <tr key={lead.id} className="align-middle">
+                  <td className="px-4 py-3 font-medium text-slate-900">{lead.full_name}</td>
+                  <td className="px-4 py-3 text-slate-600 break-all">{lead.email}</td>
+                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{lead.phone}</td>
+                  <td className="px-4 py-3 text-slate-600">{lead.target_opposition}</td>
+                  <td className="px-4 py-3">
+                    {/* key = estado real: si cambia en el servidor (otro admin, conflicto), el
+                        desplegable se reinicia y no se queda mostrando un estado obsoleto. */}
+                    <StatusSelect
+                      key={lead.status_id}
+                      leadId={lead.id}
+                      currentStatusId={lead.status_id}
+                      statuses={statuses ?? []}
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    {new Date(lead.created_at).toLocaleDateString('es-ES', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <LeadHistoryModal
+                        leadId={lead.id}
+                        leadName={lead.full_name}
+                        statuses={statuses ?? []}
+                      />
+                      <FollowUpButton
+                        lead={lead}
+                        templates={templates ?? []}
+                        statuses={statuses ?? []}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

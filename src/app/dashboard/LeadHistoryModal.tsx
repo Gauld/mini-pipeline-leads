@@ -11,6 +11,8 @@ interface HistoryRecord {
   performed_by: string
   old_status_id?: string | null
   new_status_id?: string | null
+  email_subject?: string | null
+  email_body?: string | null
 }
 
 interface LeadHistoryModalProps {
@@ -114,6 +116,16 @@ export default function LeadHistoryModal({ leadId, leadName, statuses }: LeadHis
                         <p className="text-xs text-slate-500 mb-2">
                           Realizado por: <span className="font-medium text-slate-700">{item.performed_by}</span>
                         </p>
+
+                        {item.email_body && (
+                          <details className="text-xs bg-slate-50 p-2 rounded-md border border-slate-100">
+                            <summary className="cursor-pointer font-medium text-slate-600">
+                              Ver contenido enviado
+                            </summary>
+                            <p className="mt-2 font-semibold text-slate-700">{item.email_subject}</p>
+                            <p className="mt-1 whitespace-pre-wrap text-slate-600">{item.email_body}</p>
+                          </details>
+                        )}
 
                         {(oldStatus || newStatus) && (
                           <div className="flex items-center gap-2 text-xs bg-slate-50 p-2 rounded-md border border-slate-100">

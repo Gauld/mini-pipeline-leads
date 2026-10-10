@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# vitest
+/.vitest/
+
+# docs internos
+/QA.md
+/TODOS.md
+/auditoria-produccion.md
+/decisiones.md
+/depencias.md
+/entrevisa.md
+/vulnerabilidades.md
+/image*.png

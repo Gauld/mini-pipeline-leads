@@ -23,7 +23,16 @@ export interface Lead {
   phone: string
   target_opposition: string
   status_id: string
+  consent_marketing?: boolean
   lead_statuses?: LeadStatus
+}
+
+export interface EmailTemplate {
+  id: string
+  status_id: string
+  subject: string
+  body: string
+  updated_at: string
 }
 
 export interface LeadHistory {
@@ -32,6 +41,8 @@ export interface LeadHistory {
   lead_id: string
   action: string
   performed_by: string
-  previous_status_id?: string | null
+  old_status_id?: string | null
   new_status_id?: string | null
+  email_subject?: string | null
+  email_body?: string | null
 }

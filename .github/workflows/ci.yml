@@ -1,0 +1,74 @@
+# CI mínimo.
+# Vercel ya hace el build y el despliegue; este workflow cubre lo que Vercel NO ejecuta:
+# lint (desde Next 16 `next build` no lo corre), tests, auditoría de dependencias y secretos.
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+# Mínimo privilegio: el workflow solo necesita leer el repositorio.
+permissions:
+  contents: read
+
+# Un push nuevo cancela la ejecución anterior de la misma rama/PR.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint y tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` respeta package-lock.json al pie de la letra (instalación reproducible).
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+  security:
+    name: Seguridad
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Historial completo: gitleaks debe revisar también los commits antiguos.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # BLOQUEA: vulnerabilidades altas en lo que se despliega (dependencias de producción).
+      - name: Auditoría de dependencias de producción
+        run: npm audit --omit=dev --audit-level=high
+
+      # INFORMA, no bloquea: las herramientas de desarrollo (cadena de ESLint) tienen avisos
+      # cuyo arreglo propuesto por npm es un downgrade incompatible; se revisan a mano.
+      - name: Auditoría de dependencias de desarrollo (informativa)
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      # Busca claves, tokens y contraseñas en todo el historial (--redact no los imprime en el log).
+      - name: Búsqueda de secretos (gitleaks)
+        run: >
+          docker run --rm -v "${{ github.workspace }}:/repo"
+          zricethezav/gitleaks:v8.18.4
+          detect --source /repo --redact --verbose
