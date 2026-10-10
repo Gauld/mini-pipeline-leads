@@ -30,13 +30,14 @@ export default function PrivacyPage() {
       <h2>3. Para qué y con qué base jurídica</h2>
       <ul>
         <li>
-          <strong>Atender tu solicitud de información</strong> y enviarte la respuesta inicial: tu
-          petición, medidas precontractuales (art. 6.1.b RGPD).
+          <strong>Atender tu solicitud de información</strong>, enviarte la respuesta inicial y
+          hacerle seguimiento por correo, limitado a lo que has pedido: tu petición, medidas
+          precontractuales (art. 6.1.b RGPD).
         </li>
         <li>
-          <strong>Enviarte comunicaciones comerciales</strong> (seguimiento, novedades): tu
-          consentimiento (art. 6.1.a RGPD), que es opcional, se pide con una casilla separada y puedes
-          retirar en cualquier momento sin que afecte a tu solicitud.
+          <strong>Enviarte comunicaciones comerciales que no hayas solicitado</strong> (promociones,
+          novedades): tu consentimiento (art. 6.1.a RGPD), que es opcional, se pide con una casilla
+          separada y puedes retirar en cualquier momento sin que afecte a tu solicitud.
         </li>
         <li>
           <strong>Seguridad y prevención de abuso</strong> del formulario: interés legítimo (art.

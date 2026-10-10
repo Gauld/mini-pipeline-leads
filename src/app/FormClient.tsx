@@ -156,8 +156,9 @@ export default function FormClient({ oppositions, createLead }: FormClientProps)
         <div className="legal-box">
           <p>
             <strong>Información básica sobre protección de datos.</strong> Responsable: {LEGAL.name}.
-            Finalidad: atender tu solicitud de información. Legitimación: tu petición y, para
-            comunicaciones comerciales, tu consentimiento. Destinatarios: proveedores de alojamiento y
+            Finalidad: atender tu solicitud de información y hacerle seguimiento. Legitimación: tu
+            petición y, para comunicaciones comerciales que no hayas solicitado (promociones,
+            novedades), tu consentimiento. Destinatarios: proveedores de alojamiento y
             correo (encargados del tratamiento). Derechos: acceso, rectificación, supresión, oposición,
             limitación y portabilidad, escribiendo a {LEGAL.email}. Más información en la{' '}
             <Link href="/privacidad" target="_blank" className="text-link">

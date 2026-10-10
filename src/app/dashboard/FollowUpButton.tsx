@@ -3,11 +3,10 @@
 import { useState, useTransition } from 'react'
 import { sendFollowUpEmail } from '@/app/actions/admin-leads'
 import { renderTemplate } from '@/lib/leads/render-template'
-import { canSendMarketing } from '@/lib/leads/consent'
 import { EmailTemplate, Lead, LeadStatus } from '@/types'
 
 interface FollowUpButtonProps {
-  lead: Pick<Lead, 'id' | 'full_name' | 'email' | 'target_opposition' | 'status_id' | 'consent_marketing'>
+  lead: Pick<Lead, 'id' | 'full_name' | 'email' | 'target_opposition' | 'status_id'>
   templates: EmailTemplate[]
   statuses: LeadStatus[]
 }
@@ -59,16 +58,9 @@ export default function FollowUpButton({ lead, templates, statuses }: FollowUpBu
 
   return (
     <>
-      {/* Ayuda visual: la regla real (canSendMarketing) se aplica en el servidor. */}
       <button
         onClick={handleOpen}
-        disabled={!canSendMarketing(lead)}
-        title={
-          canSendMarketing(lead)
-            ? undefined
-            : 'Este lead no ha aceptado recibir comunicaciones comerciales'
-        }
-        className="px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-blue-50"
+        className="px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors"
       >
         Enviar email de seguimiento
       </button>

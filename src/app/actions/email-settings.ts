@@ -8,7 +8,10 @@ import { loadEmailConfig } from '@/lib/email/load-config'
 import { sendEmail } from '@/lib/email/send-email'
 import { allowInternalSmtp, resolveSafeSmtpTarget } from '@/lib/security/safe-smtp-target'
 import { logError } from '@/lib/logging/log-error'
+import { canManageEmail } from '@/lib/leads/status-permissions'
+import { loadRole } from '@/lib/auth/load-role'
 
+const NO_PERMISSION = 'No tienes permiso para esta acción.'
 const TEST_RECIPIENT = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /** Envía un email de prueba con la configuración GUARDADA al destinatario indicado por el admin. */
@@ -27,6 +30,10 @@ export async function sendTestEmail(to: string) {
 
   if (authError || !user) {
     return { success: false, error: 'No autorizado: Debes iniciar sesión como administrador.' }
+  }
+
+  if (!canManageEmail(await loadRole(supabase, user.id))) {
+    return { success: false, error: NO_PERMISSION }
   }
 
   const loaded = await loadEmailConfig(supabase)
@@ -76,6 +83,10 @@ export async function saveEmailSettings(input: SaveEmailSettingsInput) {
 
   if (authError || !admin) {
     return { success: false, error: 'No autorizado: Debes iniciar sesión como administrador.' }
+  }
+
+  if (!canManageEmail(await loadRole(supabase, admin.id))) {
+    return { success: false, error: NO_PERMISSION }
   }
 
   // Anti-SSRF: el servidor abrirá conexiones a este host; solo puertos SMTP e IPs públicas.

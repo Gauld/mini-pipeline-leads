@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
 import Link from 'next/link'
 import { logError } from '@/lib/logging/log-error'
+import { canManageEmail } from '@/lib/leads/status-permissions'
+import { loadRole } from '@/lib/auth/load-role'
 import TemplateEditor from './TemplateEditor'
 
 export const instant = false
@@ -19,6 +21,10 @@ export default async function TemplatesPage() {
 
   if (authError || !user) {
     redirect('/login')
+  }
+
+  if (!canManageEmail(await loadRole(supabase, user.id))) {
+    redirect('/dashboard')
   }
 
   const { data: statuses } = await supabase

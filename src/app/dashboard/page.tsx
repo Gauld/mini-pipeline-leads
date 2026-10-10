@@ -5,6 +5,9 @@ import { logout } from '@/app/actions/auth'
 import Link from 'next/link'
 import { filterLeads } from '@/lib/leads/filter-leads'
 import { logError } from '@/lib/logging/log-error'
+import { allowedTargetStatusIds, canManageEmail, canViewLeads } from '@/lib/leads/status-permissions'
+import { loadRole } from '@/lib/auth/load-role'
+import NoAccess from './NoAccess'
 import StatusSelect from './StatusSelect'
 import LeadHistoryModal from './LeadHistoryModal'
 import FollowUpButton from './FollowUpButton'
@@ -41,7 +44,13 @@ export default async function DashboardPage({
     redirect('/login')
   }
 
-  // 2. Obtener estados configurados y leads
+  // 2. Rol (tabla user_roles). Sin rol no hay ningún permiso, tampoco de consulta.
+  const role = await loadRole(supabase, user.id)
+  if (!canViewLeads(role)) {
+    return <NoAccess email={user.email ?? ''} />
+  }
+
+  // 3. Obtener estados configurados y leads
   const { data: statuses, error: statusesError } = await supabase
     .from('lead_statuses')
     .select('*')
@@ -80,19 +89,23 @@ export default async function DashboardPage({
               Total Leads: {leads?.length || 0}
             </span>
 
-            <Link
-              href="/dashboard/plantillas"
-              className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 bg-white hover:bg-blue-50 border border-slate-200 rounded-lg transition-colors"
-            >
-              Plantillas de email
-            </Link>
+            {canManageEmail(role) && (
+              <>
+                <Link
+                  href="/dashboard/plantillas"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 bg-white hover:bg-blue-50 border border-slate-200 rounded-lg transition-colors"
+                >
+                  Plantillas de email
+                </Link>
 
-            <Link
-              href="/dashboard/configuracion"
-              className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 bg-white hover:bg-blue-50 border border-slate-200 rounded-lg transition-colors"
-            >
-              Configuración de email
-            </Link>
+                <Link
+                  href="/dashboard/configuracion"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 bg-white hover:bg-blue-50 border border-slate-200 rounded-lg transition-colors"
+                >
+                  Configuración de email
+                </Link>
+              </>
+            )}
 
             <form action={logout}>
               <button
@@ -204,6 +217,7 @@ export default async function DashboardPage({
                       leadId={lead.id}
                       currentStatusId={lead.status_id}
                       statuses={statuses ?? []}
+                      allowedStatusIds={allowedTargetStatusIds(role, lead.status_id, statuses ?? [])}
                     />
                   </td>
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
@@ -220,11 +234,13 @@ export default async function DashboardPage({
                         leadName={lead.full_name}
                         statuses={statuses ?? []}
                       />
-                      <FollowUpButton
-                        lead={lead}
-                        templates={templates ?? []}
-                        statuses={statuses ?? []}
-                      />
+                      {canManageEmail(role) && (
+                        <FollowUpButton
+                          lead={lead}
+                          templates={templates ?? []}
+                          statuses={statuses ?? []}
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>

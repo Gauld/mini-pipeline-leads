@@ -382,6 +382,11 @@ begin
     raise exception 'No autorizado';
   end if;
 
+  -- Solo admin y operator (no viewer ni usuarios sin rol).
+  if coalesce(public.current_app_role(), '') not in ('admin', 'operator') then
+    raise exception 'Tu rol no permite registrar emails de seguimiento' using errcode = '42501';
+  end if;
+
   insert into public.lead_history (lead_id, action, performed_by, email_subject, email_body)
   values (
     p_lead_id,
@@ -410,6 +415,110 @@ create trigger trg_lead_status_change
   for each row
   when (old.status_id is distinct from new.status_id)
   execute function public.log_lead_status_change();
+
+-- 4a. ROLES (admin / operator) ---------------------------
+--     Se gestionan a mano en Supabase (Table Editor > user_roles), una fila por usuario.
+--       admin    : consulta, pasa un lead a cualquier estado y gestiona el email.
+--       operator : consulta, lo pasa solo al SIGUIENTE estado (la menor position mayor que la
+--                  actual) y gestiona el email (seguimiento, plantillas, configuración).
+--       viewer   : solo consulta (leads e historial).
+--     Cerrado por defecto: un usuario SIN fila no tiene ningún permiso, ni siquiera de lectura
+--     (las políticas de la sección 5 exigen rol).
+--     Misma regla en la app: src/lib/leads/status-permissions.ts.
+
+create table if not exists public.user_roles (
+  user_id    uuid primary key references auth.users (id) on delete cascade,
+  role       text not null,
+  created_at timestamptz not null default now()
+);
+
+-- Se recrea para admitir roles nuevos si la tabla ya existía con otra lista.
+alter table public.user_roles drop constraint if exists user_roles_role_check;
+alter table public.user_roles
+  add constraint user_roles_role_check check (role in ('admin', 'operator', 'viewer'));
+
+alter table public.user_roles enable row level security;
+revoke all on public.user_roles from public, anon, authenticated;
+grant select on public.user_roles to authenticated;   -- cada usuario lee SOLO su fila (policy)
+
+drop policy if exists user_roles_select_own on public.user_roles;
+create policy user_roles_select_own on public.user_roles
+  for select to authenticated using (user_id = auth.uid());
+
+-- Alta de roles (ejecutar UNA vez; sustituir los emails). Los usuarios que ya existían quedan
+-- sin rol y NO podrán cambiar estados hasta que tengan fila:
+--   insert into public.user_roles (user_id, role)
+--   select id, 'admin' from auth.users where email = 'ADMIN@EJEMPLO.COM'
+--   on conflict (user_id) do update set role = excluded.role;
+--   insert into public.user_roles (user_id, role)
+--   select id, 'operator' from auth.users where email = 'OPERADOR@EJEMPLO.COM'
+--   on conflict (user_id) do update set role = excluded.role;
+--   (rol 'viewer' igual, con role = 'viewer')
+
+-- Rol del usuario de la sesión (null si no tiene). SECURITY DEFINER: lo usan las políticas RLS
+-- de la sección 5 sin depender de que el usuario pueda leer user_roles.
+create or replace function public.current_app_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from public.user_roles where user_id = auth.uid()
+$$;
+
+revoke all on function public.current_app_role() from public, anon;
+grant execute on function public.current_app_role() to authenticated;
+
+-- Aplica la regla en la base: la UI y la Server Action se pueden saltar (la anon key es pública y
+-- `authenticated` tiene UPDATE sobre status_id). Sin sesión de usuario (service_role, SQL Editor)
+-- no se aplica. El historial lo sigue escribiendo trg_lead_status_change.
+create or replace function public.enforce_status_transition()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_role text;
+  v_old  integer;
+  v_new  integer;
+  v_next integer;
+begin
+  if auth.uid() is null then
+    return new;
+  end if;
+
+  select role into v_role from public.user_roles where user_id = auth.uid();
+
+  if v_role = 'admin' then
+    return new;
+  end if;
+
+  if v_role is distinct from 'operator' then
+    raise exception 'Tu rol no permite cambiar el estado de un lead' using errcode = '42501';
+  end if;
+
+  select position into v_old from public.lead_statuses where id = old.status_id;
+  select position into v_new from public.lead_statuses where id = new.status_id;
+  select min(position) into v_next from public.lead_statuses where position > v_old;
+
+  if v_old is null or v_new is null or v_next is null or v_new <> v_next then
+    raise exception 'El rol operador solo puede pasar un lead al siguiente estado' using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.enforce_status_transition() from public, anon, authenticated;
+
+drop trigger if exists trg_enforce_status_transition on public.leads;
+create trigger trg_enforce_status_transition
+  before update of status_id on public.leads
+  for each row
+  when (old.status_id is distinct from new.status_id)
+  execute function public.enforce_status_transition();
 
 -- 4b. REGISTRO DE ERRORES --------------------------------
 --     Lo escribe el servidor con service_role (src/lib/logging/log-error.ts).
@@ -465,35 +574,52 @@ create policy leads_insert_public on public.leads
   for insert to anon, authenticated
   with check (status_id = (select id from public.lead_statuses where position = 1 limit 1));
 
+-- Todas las políticas de abajo exigen ROL (public.current_app_role(), sección 4a): un usuario
+-- autenticado sin fila en user_roles no puede leer ni escribir nada.
+
+-- Consulta: cualquier rol.
 create policy leads_select_admin on public.leads
-  for select to authenticated using (true);
+  for select to authenticated
+  using (public.current_app_role() in ('admin', 'operator', 'viewer'));
 
+-- Cambio de estado: admin y operator (el trigger enforce_status_transition limita al operator).
 create policy leads_update_admin on public.leads
-  for update to authenticated using (true) with check (true);
+  for update to authenticated
+  using (public.current_app_role() in ('admin', 'operator'))
+  with check (public.current_app_role() in ('admin', 'operator'));
 
--- Historial: solo lectura para admins. Las escrituras las hacen los triggers.
+-- Historial: lectura con cualquier rol. Las escrituras las hacen los triggers.
 create policy lead_history_select_admin on public.lead_history
-  for select to authenticated using (true);
+  for select to authenticated
+  using (public.current_app_role() in ('admin', 'operator', 'viewer'));
 
--- Plantillas: solo admins. Una por estado (UNIQUE); se guardan con upsert.
+-- Plantillas: admin y operator. Una por estado (UNIQUE); se guardan con upsert.
 create policy email_templates_select_admin on public.email_templates
-  for select to authenticated using (true);
+  for select to authenticated
+  using (public.current_app_role() in ('admin', 'operator'));
 
 create policy email_templates_insert_admin on public.email_templates
-  for insert to authenticated with check (true);
+  for insert to authenticated
+  with check (public.current_app_role() in ('admin', 'operator'));
 
 create policy email_templates_update_admin on public.email_templates
-  for update to authenticated using (true) with check (true);
+  for update to authenticated
+  using (public.current_app_role() in ('admin', 'operator'))
+  with check (public.current_app_role() in ('admin', 'operator'));
 
--- Configuración de email: solo admins; anon no toca nada. Contenido sensible cifrado.
+-- Configuración de email: admin y operator; anon no toca nada. Contenido sensible cifrado.
 create policy email_settings_select_admin on public.email_settings
-  for select to authenticated using (true);
+  for select to authenticated
+  using (public.current_app_role() in ('admin', 'operator'));
 
 create policy email_settings_insert_admin on public.email_settings
-  for insert to authenticated with check (true);
+  for insert to authenticated
+  with check (public.current_app_role() in ('admin', 'operator'));
 
 create policy email_settings_update_admin on public.email_settings
-  for update to authenticated using (true) with check (true);
+  for update to authenticated
+  using (public.current_app_role() in ('admin', 'operator'))
+  with check (public.current_app_role() in ('admin', 'operator'));
 
 -- Privilegios a nivel de tabla/columna (defensa en profundidad sobre RLS).
 revoke all on public.lead_statuses, public.target_oppositions, public.leads, public.lead_history,

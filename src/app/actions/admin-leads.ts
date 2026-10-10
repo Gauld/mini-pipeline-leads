@@ -4,8 +4,11 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendEmail } from '@/lib/email/send-email'
 import { loadEmailConfig } from '@/lib/email/load-config'
-import { canSendMarketing } from '@/lib/leads/consent'
 import { interpretStatusUpdate, parseStatusChange } from '@/lib/leads/status-change'
+import { canChangeStatus, canManageEmail, canViewLeads } from '@/lib/leads/status-permissions'
+import { loadRole } from '@/lib/auth/load-role'
+
+const NO_PERMISSION = 'No tienes permiso para esta acción.'
 import { logError } from '@/lib/logging/log-error'
 
 export async function updateLeadStatus(
@@ -31,6 +34,20 @@ export async function updateLeadStatus(
       error: 'No autorizado: Debes iniciar sesión como administrador.',
       conflict: false,
     }
+  }
+
+  // Permisos por rol (admin: cualquier estado; operador: solo el siguiente). El trigger
+  // enforce_status_transition aplica la misma regla en la base; esto da un mensaje claro.
+  const [role, { data: statuses, error: statusesError }] = await Promise.all([
+    loadRole(supabase, user.id),
+    supabase.from('lead_statuses').select('id, position'),
+  ])
+  if (statusesError) {
+    await logError('dashboard.updateLeadStatus.statuses', statusesError)
+    return { success: false, error: 'No se pudo actualizar el estado.', conflict: false }
+  }
+  if (!canChangeStatus(role, parsed.change.oldStatusId, parsed.change.newStatusId, statuses ?? [])) {
+    return { success: false, error: 'No tienes permiso para este cambio de estado.', conflict: false }
   }
 
   // Concurrencia optimista: solo se cambia si el estado sigue siendo el
@@ -79,10 +96,14 @@ export async function sendFollowUpEmail(leadId: string, subject: string, body: s
     return { success: false, error: 'No autorizado: Debes iniciar sesión como administrador.' }
   }
 
+  if (!canManageEmail(await loadRole(supabase, user.id))) {
+    return { success: false, error: NO_PERMISSION }
+  }
+
   // El destinatario se lee en el servidor: nunca se confía en un email enviado por el cliente.
   const { data: lead, error: leadError } = await supabase
     .from('leads')
-    .select('email, consent_marketing')
+    .select('email')
     .eq('id', leadId)
     .single()
 
@@ -91,11 +112,8 @@ export async function sendFollowUpEmail(leadId: string, subject: string, body: s
     return { success: false, error: 'Lead no encontrado.' }
   }
 
-  // El seguimiento es comunicación comercial: solo con consentimiento explícito (LSSI art. 21).
-  // La regla vive en el servidor: ocultar el botón en la UI no basta.
-  if (!canSendMarketing(lead)) {
-    return { success: false, error: 'Este lead no ha aceptado recibir comunicaciones comerciales.' }
-  }
+  // El seguimiento responde a una solicitud que el propio lead hizo: no es una comunicación
+  // comercial no solicitada y no exige consent_marketing (ver D27). Debe limitarse a lo que pidió.
 
   // Modo envío: primero se envía y solo con éxito se registra como enviado. Un fallo queda en el
   // historial con su error (el historial no miente). Modo simulación: se registra sin enviar.
@@ -155,6 +173,10 @@ export async function saveEmailTemplate(statusId: string, subject: string, body:
     return { success: false, error: 'No autorizado: Debes iniciar sesión como administrador.' }
   }
 
+  if (!canManageEmail(await loadRole(supabase, user.id))) {
+    return { success: false, error: NO_PERMISSION }
+  }
+
   const { error } = await supabase
     .from('email_templates')
     .upsert(
@@ -186,6 +208,10 @@ export async function getLeadHistory(leadId: string) {
       error: 'No autorizado: Debes iniciar sesión para consultar el historial.',
       data: null,
     }
+  }
+
+  if (!canViewLeads(await loadRole(supabase, user.id))) {
+    return { success: false, error: NO_PERMISSION, data: null }
   }
 
   // Consultar registros de auditoría del lead ordenados por fecha descendente
