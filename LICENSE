@@ -1,0 +1,37 @@
+Copyright (c) 2026 Wanderer Clown. Todos los derechos reservados.
+
+LICENCIA PROPIETARIA DE VISUALIZACIÓN PARA EVALUACIÓN
+
+Este código fuente se publica únicamente para que pueda ser leído y evaluado
+(por ejemplo, como prueba técnica). Su publicación NO constituye una licencia
+de uso, ni de código abierto.
+
+1. PERMITIDO
+   Ver y leer el código fuente con fines de evaluación personal.
+
+2. PROHIBIDO sin autorización previa y por escrito del titular:
+   a) copiar, reproducir o redistribuir el código, total o parcialmente;
+   b) modificarlo o crear obras derivadas a partir de él, incluida la creación
+      de otras aplicaciones, productos o servicios basados en este código;
+   c) ejecutarlo, desplegarlo o usarlo con fines comerciales, de producción o
+      de cualquier otro tipo distinto de la evaluación;
+   d) sublicenciarlo, venderlo o ponerlo a disposición de terceros;
+   e) usarlo para entrenar modelos de inteligencia artificial.
+
+3. PLATAFORMAS
+   Si el repositorio está alojado en una plataforma cuyos términos de servicio
+   permiten a otros usuarios bifurcarlo (fork) o visualizarlo, ese permiso se
+   limita a lo estrictamente necesario para el funcionamiento de la plataforma.
+   No concede ningún derecho adicional sobre el código, que sigue sujeto a esta
+   licencia.
+
+4. SIN GARANTÍA
+   EL CÓDIGO SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O
+   IMPLÍCITA. EN NINGÚN CASO EL TITULAR SERÁ RESPONSABLE DE RECLAMACIÓN, DAÑO U
+   OTRA RESPONSABILIDAD DERIVADA DEL USO DEL CÓDIGO.
+
+5. DEPENDENCIAS DE TERCEROS
+   Las dependencias de terceros (listadas en package.json) se rigen por sus
+   propias licencias y no están cubiertas por esta.
+
+Para solicitar permiso de uso, contactar con el titular.
