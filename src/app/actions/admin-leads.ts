@@ -7,6 +7,7 @@ import { loadEmailConfig } from '@/lib/email/load-config'
 import { interpretStatusUpdate, parseStatusChange } from '@/lib/leads/status-change'
 import { canChangeStatus, canManageEmail, canViewLeads } from '@/lib/leads/status-permissions'
 import { loadRole } from '@/lib/auth/load-role'
+import { loadTransitions } from '@/lib/auth/load-transitions'
 
 const NO_PERMISSION = 'No tienes permiso para esta acción.'
 import { logError } from '@/lib/logging/log-error'
@@ -36,17 +37,20 @@ export async function updateLeadStatus(
     }
   }
 
-  // Permisos por rol (admin: cualquier estado; operador: solo el siguiente). El trigger
+  // Permisos por rol (admin: cualquier estado; operador: solo las transiciones definidas). El trigger
   // enforce_status_transition aplica la misma regla en la base; esto da un mensaje claro.
-  const [role, { data: statuses, error: statusesError }] = await Promise.all([
+  const [role, transitions, { data: statuses, error: statusesError }] = await Promise.all([
     loadRole(supabase, user.id),
-    supabase.from('lead_statuses').select('id, position'),
+    loadTransitions(supabase),
+    supabase.from('lead_statuses').select('id'),
   ])
   if (statusesError) {
     await logError('dashboard.updateLeadStatus.statuses', statusesError)
     return { success: false, error: 'No se pudo actualizar el estado.', conflict: false }
   }
-  if (!canChangeStatus(role, parsed.change.oldStatusId, parsed.change.newStatusId, statuses ?? [])) {
+  if (
+    !canChangeStatus(role, parsed.change.oldStatusId, parsed.change.newStatusId, statuses ?? [], transitions)
+  ) {
     return { success: false, error: 'No tienes permiso para este cambio de estado.', conflict: false }
   }
 

@@ -3,13 +3,19 @@
 
 // Roles (tabla user_roles). Sin fila => sin rol => sin ningún permiso, tampoco de consulta.
 //   admin    : consulta, cambia el estado a cualquiera y gestiona el email.
-//   operator : consulta, cambia el estado solo al siguiente y gestiona el email.
+//   operator : consulta, cambia el estado solo siguiendo las transiciones definidas
+//              (tabla status_transitions) y gestiona el email.
 //   viewer   : solo consulta.
 export type AppRole = 'admin' | 'operator' | 'viewer'
 
 export interface StatusRef {
   id: string
-  position: number
+}
+
+/** Transición permitida al operador: de un estado a otro (fila de status_transitions). */
+export interface StatusTransition {
+  from_status_id: string
+  to_status_id: string
 }
 
 /** Cerrado por defecto: solo los roles conocidos cuentan; cualquier otro valor no es un rol. */
@@ -30,30 +36,34 @@ export function canManageEmail(role: AppRole | null): boolean {
 /**
  * Estados a los que `role` puede mover un lead que está en `currentStatusId`.
  * - admin: cualquiera salvo el actual.
- * - operator: solo el siguiente inmediato (la menor `position` mayor que la actual).
+ * - operator: los destinos definidos en `transitions` desde el estado actual (puede haber
+ *   varios: p. ej. "En seguimiento" -> "Convertido" o "Perdido"). Sin transiciones, ninguno.
  * - viewer, sin rol o estado actual desconocido: ninguno.
  */
 export function allowedTargetStatusIds(
   role: AppRole | null,
   currentStatusId: string,
-  statuses: StatusRef[]
+  statuses: StatusRef[],
+  transitions: StatusTransition[]
 ): string[] {
   const current = statuses.find((s) => s.id === currentStatusId)
   if (!role || role === 'viewer' || !current) return []
 
   if (role === 'admin') return statuses.filter((s) => s.id !== current.id).map((s) => s.id)
 
-  const next = statuses
-    .filter((s) => s.position > current.position)
-    .reduce<StatusRef | null>((min, s) => (min === null || s.position < min.position ? s : min), null)
-  return next ? [next.id] : []
+  const existing = new Set(statuses.map((s) => s.id))
+  return transitions
+    .filter((t) => t.from_status_id === current.id && t.to_status_id !== current.id)
+    .map((t) => t.to_status_id)
+    .filter((id) => existing.has(id))
 }
 
 export function canChangeStatus(
   role: AppRole | null,
   currentStatusId: string,
   targetStatusId: string,
-  statuses: StatusRef[]
+  statuses: StatusRef[],
+  transitions: StatusTransition[]
 ): boolean {
-  return allowedTargetStatusIds(role, currentStatusId, statuses).includes(targetStatusId)
+  return allowedTargetStatusIds(role, currentStatusId, statuses, transitions).includes(targetStatusId)
 }

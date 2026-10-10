@@ -7,6 +7,7 @@ import { filterLeads } from '@/lib/leads/filter-leads'
 import { logError } from '@/lib/logging/log-error'
 import { allowedTargetStatusIds, canManageEmail, canViewLeads } from '@/lib/leads/status-permissions'
 import { loadRole } from '@/lib/auth/load-role'
+import { loadTransitions } from '@/lib/auth/load-transitions'
 import NoAccess from './NoAccess'
 import StatusSelect from './StatusSelect'
 import LeadHistoryModal from './LeadHistoryModal'
@@ -55,6 +56,8 @@ export default async function DashboardPage({
     .from('lead_statuses')
     .select('*')
     .order('position', { ascending: true })
+
+  const transitions = await loadTransitions(supabase)
 
   const { data: templates, error: templatesError } = await supabase
     .from('email_templates')
@@ -217,7 +220,7 @@ export default async function DashboardPage({
                       leadId={lead.id}
                       currentStatusId={lead.status_id}
                       statuses={statuses ?? []}
-                      allowedStatusIds={allowedTargetStatusIds(role, lead.status_id, statuses ?? [])}
+                      allowedStatusIds={allowedTargetStatusIds(role, lead.status_id, statuses ?? [], transitions)}
                     />
                   </td>
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">

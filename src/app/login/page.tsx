@@ -1,25 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { login } from '@/app/actions/auth'
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  // useTransition en vez de un booleano a mano: `isPending` se reinicia solo cuando termina la
+  // transición, también tras el redirect() de un login correcto. Con un useState, la página se
+  // quedaba en "Iniciando sesión..." si volvía a mostrarse con el estado conservado (p. ej. tras
+  // cerrar sesión).
+  const [loading, startTransition] = useTransition()
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    setLoading(true)
 
     const formData = new FormData(e.currentTarget)
-    const result = await login(formData)
+    startTransition(async () => {
+      const result = await login(formData)
 
-    // Si la función hace redirect(), no llegará aquí; si devuelve un objeto con error:
-    if (result && !result.success) {
-      setError(result.error)
-      setLoading(false)
-    }
+      // Si la función hace redirect(), no llegará aquí; si devuelve un objeto con error:
+      if (result && !result.success) setError(result.error)
+    })
   }
 
   return (

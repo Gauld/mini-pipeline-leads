@@ -419,8 +419,8 @@ create trigger trg_lead_status_change
 -- 4a. ROLES (admin / operator) ---------------------------
 --     Se gestionan a mano en Supabase (Table Editor > user_roles), una fila por usuario.
 --       admin    : consulta, pasa un lead a cualquier estado y gestiona el email.
---       operator : consulta, lo pasa solo al SIGUIENTE estado (la menor position mayor que la
---                  actual) y gestiona el email (seguimiento, plantillas, configuración).
+--       operator : consulta, lo pasa solo por las transiciones definidas en status_transitions
+--                  (más abajo) y gestiona el email (seguimiento, plantillas, configuración).
 --       viewer   : solo consulta (leads e historial).
 --     Cerrado por defecto: un usuario SIN fila no tiene ningún permiso, ni siquiera de lectura
 --     (las políticas de la sección 5 exigen rol).
@@ -470,6 +470,39 @@ $$;
 revoke all on function public.current_app_role() from public, anon;
 grant execute on function public.current_app_role() to authenticated;
 
+-- Transiciones que puede hacer el rol operator (el admin no las necesita: va a cualquier estado).
+-- Se editan a mano en Supabase (Table Editor > status_transitions): una fila por cada salto
+-- permitido. Un estado puede tener varios destinos (bifurcación) o ninguno (estado final).
+create table if not exists public.status_transitions (
+  from_status_id uuid not null references public.lead_statuses (id) on delete cascade,
+  to_status_id   uuid not null references public.lead_statuses (id) on delete cascade,
+  primary key (from_status_id, to_status_id),
+  check (from_status_id <> to_status_id)
+);
+
+alter table public.status_transitions enable row level security;
+revoke all on public.status_transitions from public, anon, authenticated;
+grant select on public.status_transitions to authenticated;
+
+drop policy if exists status_transitions_select on public.status_transitions;
+create policy status_transitions_select on public.status_transitions
+  for select to authenticated
+  using (public.current_app_role() is not null);
+
+-- Semilla (solo si la tabla está vacía, para no pisar lo que se haya editado a mano):
+-- Nuevo -> Contactado -> En seguimiento -> (Convertido | Perdido).
+insert into public.status_transitions (from_status_id, to_status_id)
+select f.id, t.id
+from (values
+  ('nuevo',          'contactado'),
+  ('contactado',     'en-seguimiento'),
+  ('en-seguimiento', 'convertido'),
+  ('en-seguimiento', 'perdido')
+) as v (from_slug, to_slug)
+join public.lead_statuses f on f.slug = v.from_slug
+join public.lead_statuses t on t.slug = v.to_slug
+where not exists (select 1 from public.status_transitions);
+
 -- Aplica la regla en la base: la UI y la Server Action se pueden saltar (la anon key es pública y
 -- `authenticated` tiene UPDATE sobre status_id). Sin sesión de usuario (service_role, SQL Editor)
 -- no se aplica. El historial lo sigue escribiendo trg_lead_status_change.
@@ -481,9 +514,6 @@ set search_path = public
 as $$
 declare
   v_role text;
-  v_old  integer;
-  v_new  integer;
-  v_next integer;
 begin
   if auth.uid() is null then
     return new;
@@ -499,12 +529,12 @@ begin
     raise exception 'Tu rol no permite cambiar el estado de un lead' using errcode = '42501';
   end if;
 
-  select position into v_old from public.lead_statuses where id = old.status_id;
-  select position into v_new from public.lead_statuses where id = new.status_id;
-  select min(position) into v_next from public.lead_statuses where position > v_old;
-
-  if v_old is null or v_new is null or v_next is null or v_new <> v_next then
-    raise exception 'El rol operador solo puede pasar un lead al siguiente estado' using errcode = '42501';
+  -- Operador: solo si existe esa transición en status_transitions.
+  if not exists (
+    select 1 from public.status_transitions
+    where from_status_id = old.status_id and to_status_id = new.status_id
+  ) then
+    raise exception 'El rol operador no puede hacer este cambio de estado' using errcode = '42501';
   end if;
 
   return new;
