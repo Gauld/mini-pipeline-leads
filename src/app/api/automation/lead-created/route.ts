@@ -5,8 +5,6 @@ import { loadEmailConfig } from '@/lib/email/load-config'
 import { sendEmail } from '@/lib/email/send-email'
 import { processWelcomeEmail, type WelcomeLead, type WelcomeTemplate } from '@/lib/leads/welcome-email'
 
-export const runtime = 'nodejs'
-
 const DEFAULT_DAILY_CAP = 200
 
 const UUID =/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
