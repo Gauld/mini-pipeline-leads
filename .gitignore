@@ -43,6 +43,9 @@ next-env.d.ts
 # vitest
 /.vitest/
 
+# claude code (config personal, no compartir)
+.claude/settings.local.json
+
 # docs internos
 /QA.md
 /TODOS.md
