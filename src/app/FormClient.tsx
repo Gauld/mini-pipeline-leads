@@ -194,7 +194,7 @@ export default function FormClient({ oppositions, createLead }: FormClientProps)
         {TURNSTILE_SITE_KEY && (
           <>
             <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
-            <div className="cf-turnstile" data-sitekey={TURNSTILE_SITE_KEY} />
+            <div className="cf-turnstile flex justify-center" data-sitekey={TURNSTILE_SITE_KEY} />
           </>
         )}
 
