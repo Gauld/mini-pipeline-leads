@@ -122,6 +122,12 @@ create table if not exists public.email_settings (
   updated_by              text
 );
 
+-- Con simulación activa la cuenta es opcional: host, usuario y contraseña pueden ser null.
+-- (idempotente: drop not null no falla si la columna ya admite null)
+alter table public.email_settings alter column smtp_host drop not null;
+alter table public.email_settings alter column smtp_user drop not null;
+alter table public.email_settings alter column smtp_password_encrypted drop not null;
+
 -- Modo simulación: true = los correos se registran como enviados pero NO se envían.
 -- Sin fila (o sin cuenta en el entorno) la app simula siempre. Ver src/lib/email/settings.ts.
 alter table public.email_settings add column if not exists simulate_sending boolean not null default false;

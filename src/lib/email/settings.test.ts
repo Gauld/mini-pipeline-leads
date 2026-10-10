@@ -33,6 +33,19 @@ describe('validateEmailSettings', () => {
     expect(validateEmailSettings({ ...ok, user: '' }).ok).toBe(false)
   })
 
+  it('con simulación activa, host y usuario son opcionales (null si vacíos)', () => {
+    const empty = { ...ok, host: '', user: '  ', simulateSending: true }
+    expect(validateEmailSettings(empty)).toEqual({
+      ok: true,
+      value: { host: null, port: 465, user: null, fromAddress: null, fromName: 'Academia' },
+    })
+  })
+
+  it('con simulación activa sigue validando lo que se informa', () => {
+    expect(validateEmailSettings({ ...ok, simulateSending: true, port: 'abc' }).ok).toBe(false)
+    expect(validateEmailSettings({ ...ok, simulateSending: true, host: 'a\nb' }).ok).toBe(false)
+  })
+
   it('exige puerto entero entre 1 y 65535', () => {
     for (const port of ['0', '65536', 'abc', '25.5', '']) {
       expect(validateEmailSettings({ ...ok, port }).ok).toBe(false)
@@ -82,6 +95,12 @@ describe('resolveEmailConfig', () => {
     expect(resolveEmailConfig(null, {}, key)).toBeNull()
   })
 
+  it('fila incompleta (guardada en modo simulación): cae al entorno', () => {
+    const incomplete = { ...row, smtp_host: null, smtp_user: null, smtp_password_encrypted: null }
+    expect(resolveEmailConfig(incomplete, env, undefined)?.host).toBe('env.host')
+    expect(resolveEmailConfig(incomplete, {}, undefined)).toBeNull()
+  })
+
   it('lanza si hay contraseña guardada pero no hay clave de cifrado', () => {
     expect(() => resolveEmailConfig(row, env, undefined)).toThrow(/SETTINGS_ENCRYPTION_KEY/)
   })
@@ -121,6 +140,11 @@ describe('resolveEmailMode', () => {
 
   it('sin fila y sin entorno: simula', () => {
     expect(resolveEmailMode(null, {}, key)).toEqual({ mode: 'simulate' })
+  })
+
+  it('fila incompleta sin simulación y sin entorno: simula', () => {
+    const incomplete = { ...row, smtp_host: null, smtp_user: null, smtp_password_encrypted: null }
+    expect(resolveEmailMode(incomplete, {}, undefined)).toEqual({ mode: 'simulate' })
   })
 
   it('enviando con cuenta guardada y sin clave de cifrado: lanza (configuración errónea, no se simula)', () => {

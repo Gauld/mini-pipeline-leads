@@ -27,10 +27,10 @@ export default async function SettingsPage() {
     redirect('/dashboard')
   }
 
-  // Se piden columnas explícitas: la contraseña cifrada nunca llega al cliente.
+  // La contraseña cifrada se lee solo para saber si existe: al cliente llega un booleano.
   const { data: settings, error } = await supabase
     .from('email_settings')
-    .select('smtp_host, smtp_port, smtp_user, from_address, from_name, simulate_sending, bypass_rate_limit, updated_at, updated_by')
+    .select('smtp_host, smtp_port, smtp_user, smtp_password_encrypted, from_address, from_name, simulate_sending, bypass_rate_limit, updated_at, updated_by')
     .maybeSingle()
 
   if (error) await logError('dashboard.configuracion.query', error)
@@ -62,9 +62,10 @@ export default async function SettingsPage() {
         <EmailSettingsForm
           initial={
             settings && {
-              host: settings.smtp_host,
+              host: settings.smtp_host ?? '',
               port: settings.smtp_port,
-              user: settings.smtp_user,
+              user: settings.smtp_user ?? '',
+              hasPassword: Boolean(settings.smtp_password_encrypted),
               fromAddress: settings.from_address ?? '',
               fromName: settings.from_name ?? '',
               simulateSending: settings.simulate_sending,

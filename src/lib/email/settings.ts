@@ -3,10 +3,11 @@ import { readEmailConfig, type SmtpConfig } from './send-email'
 
 /** Fila de public.email_settings (la contraseña siempre cifrada). */
 export interface EmailSettingsRow {
-  smtp_host: string
+  /** host, user y contraseña son null si la fila se guardó solo para simular. */
+  smtp_host: string | null
   smtp_port: number
-  smtp_user: string
-  smtp_password_encrypted: string
+  smtp_user: string | null
+  smtp_password_encrypted: string | null
   from_address: string | null
   from_name: string | null
   /** true = no se envía: los correos se registran como enviados sin salir. */
@@ -19,12 +20,14 @@ export interface EmailSettingsInput {
   user: string
   fromAddress: string
   fromName: string
+  /** true = host y usuario pasan a ser opcionales. */
+  simulateSending?: boolean
 }
 
 export interface EmailSettingsValue {
-  host: string
+  host: string | null
   port: number
-  user: string
+  user: string | null
   fromAddress: string | null
   fromName: string
 }
@@ -44,8 +47,9 @@ export function validateEmailSettings(input: EmailSettingsInput): Validation {
   if ([host, user, fromAddress, fromName].some((v) => HAS_LINE_BREAK.test(v))) {
     return { ok: false, error: 'Los campos no pueden contener saltos de línea.' }
   }
-  if (!host || host.length > 255) return { ok: false, error: 'El servidor SMTP es obligatorio.' }
-  if (!user || user.length > 255) return { ok: false, error: 'El usuario es obligatorio.' }
+  const optional = input.simulateSending === true
+  if ((!host && !optional) || host.length > 255) return { ok: false, error: 'El servidor SMTP es obligatorio.' }
+  if ((!user && !optional) || user.length > 255) return { ok: false, error: 'El usuario es obligatorio.' }
 
   const port = Number(portText)
   if (!/^\d+$/.test(portText) || port < 1 || port > 65535) {
@@ -56,7 +60,10 @@ export function validateEmailSettings(input: EmailSettingsInput): Validation {
   }
   if (fromName.length > 100) return { ok: false, error: 'El nombre del remitente es demasiado largo.' }
 
-  return { ok: true, value: { host, port, user, fromAddress: fromAddress || null, fromName } }
+  return {
+    ok: true,
+    value: { host: host || null, port, user: user || null, fromAddress: fromAddress || null, fromName },
+  }
 }
 
 export function buildTestEmail(to: string) {
@@ -88,14 +95,15 @@ export function resolveEmailMode(
 
 /**
  * La configuración de la base de datos manda; si no existe, se usan las variables
- * SMTP_* del entorno. Lanza si hay contraseña guardada y falta/falla la clave.
+ * SMTP_* del entorno (también si la fila está incompleta, p. ej. guardada solo para simular).
+ * Lanza si hay contraseña guardada y falta/falla la clave.
  */
 export function resolveEmailConfig(
   row: EmailSettingsRow | null,
   env: Record<string, string | undefined>,
   encryptionKey: string | undefined
 ): SmtpConfig | null {
-  if (!row) return readEmailConfig(env)
+  if (!row || !row.smtp_host || !row.smtp_user || !row.smtp_password_encrypted) return readEmailConfig(env)
 
   if (!encryptionKey) {
     throw new Error('Falta SETTINGS_ENCRYPTION_KEY para descifrar la contraseña SMTP guardada.')

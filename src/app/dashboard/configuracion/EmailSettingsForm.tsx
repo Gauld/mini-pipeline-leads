@@ -7,6 +7,7 @@ interface Initial {
   host: string
   port: number
   user: string
+  hasPassword: boolean
   fromAddress: string
   fromName: string
   simulateSending: boolean
@@ -27,7 +28,7 @@ export default function EmailSettingsForm({ initial }: { initial: Initial | null
   const [fromName, setFromName] = useState(initial?.fromName ?? '')
   const [simulateSending, setSimulateSending] = useState(initial?.simulateSending ?? false)
   const [bypassRateLimit, setBypassRateLimit] = useState(initial?.bypassRateLimit ?? false)
-  const [hasPassword, setHasPassword] = useState(Boolean(initial))
+  const [hasPassword, setHasPassword] = useState(initial?.hasPassword ?? false)
   const [testTo, setTestTo] = useState('')
   const [isPending, startTransition] = useTransition()
   const [isTesting, startTesting] = useTransition()
@@ -62,7 +63,7 @@ export default function EmailSettingsForm({ initial }: { initial: Initial | null
       })
       if (result.success) {
         setPassword('')
-        setHasPassword(true)
+        if (password) setHasPassword(true)
         setFeedback({ type: 'success', text: 'Configuración guardada' })
       } else {
         setFeedback({ type: 'error', text: result.error ?? 'Error al guardar.' })
@@ -81,7 +82,8 @@ export default function EmailSettingsForm({ initial }: { initial: Initial | null
         />
         <span className="text-xs text-amber-900">
           <strong>Simular envíos</strong> — no se envía ningún correo, pero se registra en el historial como
-          enviado. Desactívalo para enviar con la cuenta de abajo; si falla, el error queda en el historial.
+          enviado. Con esta opción la cuenta de abajo es opcional. Desactívalo para enviar con ella; si
+          falla, el error queda en el historial.
           {!initial && (
             <span className="mt-1 block text-amber-700">
               Mientras no guardes una cuenta, los envíos se simulan.
@@ -112,7 +114,7 @@ export default function EmailSettingsForm({ initial }: { initial: Initial | null
             value={host}
             onChange={(e) => setHost(e.target.value)}
             placeholder="smtp.gmail.com"
-            required
+            required={!simulateSending}
             className={inputClass}
           />
         </label>
@@ -140,7 +142,7 @@ export default function EmailSettingsForm({ initial }: { initial: Initial | null
           onChange={(e) => setUser(e.target.value)}
           placeholder="tu@gmail.com"
           autoComplete="off"
-          required
+          required={!simulateSending}
           className={inputClass}
         />
       </label>
@@ -153,7 +155,7 @@ export default function EmailSettingsForm({ initial }: { initial: Initial | null
           onChange={(e) => setPassword(e.target.value)}
           placeholder={hasPassword ? '••••••••  (vacío = conservar)' : 'Contraseña de aplicación'}
           autoComplete="new-password"
-          required={!hasPassword}
+          required={!hasPassword && !simulateSending}
           className={inputClass}
         />
       </label>

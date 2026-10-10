@@ -70,7 +70,8 @@ interface SaveEmailSettingsInput {
 }
 
 export async function saveEmailSettings(input: SaveEmailSettingsInput) {
-  const validation = validateEmailSettings(input)
+  const simulate = input.simulateSending === true
+  const validation = validateEmailSettings({ ...input, simulateSending: simulate })
   if (!validation.ok) return { success: false, error: validation.error }
   const { host, port, user, fromAddress, fromName } = validation.value
 
@@ -90,8 +91,11 @@ export async function saveEmailSettings(input: SaveEmailSettingsInput) {
   }
 
   // Anti-SSRF: el servidor abrirá conexiones a este host; solo puertos SMTP e IPs públicas.
-  const target = await resolveSafeSmtpTarget(host, port, { allowInternal: allowInternalSmtp() })
-  if (!target.ok) return { success: false, error: target.error }
+  // Sin host (solo simulación) no hay conexión que validar.
+  if (host) {
+    const target = await resolveSafeSmtpTarget(host, port, { allowInternal: allowInternalSmtp() })
+    if (!target.ok) return { success: false, error: target.error }
+  }
 
   const row = {
     id: true,
@@ -102,7 +106,7 @@ export async function saveEmailSettings(input: SaveEmailSettingsInput) {
     from_name: fromName || null,
     updated_at: new Date().toISOString(),
     updated_by: admin.email ?? null,
-    simulate_sending: input.simulateSending === true,
+    simulate_sending: simulate,
     bypass_rate_limit: input.bypassRateLimit === true,
   }
 
@@ -127,19 +131,31 @@ export async function saveEmailSettings(input: SaveEmailSettingsInput) {
       await logError('dashboard.saveEmailSettings.upsert', error)
       return { success: false, error: `No se pudo guardar: ${error.message}` }
     }
+  } else if (simulate) {
+    // Solo simulación: la cuenta es opcional. El upsert no toca la contraseña ya guardada.
+    const { error } = await supabase.from('email_settings').upsert(row, { onConflict: 'id' })
+    if (error) {
+      await logError('dashboard.saveEmailSettings.upsertSimulate', error)
+      return { success: false, error: `No se pudo guardar: ${error.message}` }
+    }
   } else {
-    // Sin contraseña nueva: solo se actualiza una configuración ya existente.
-    const { data, error } = await supabase
+    // Sin contraseña nueva: solo se actualiza una configuración que ya tenga contraseña.
+    const { data: existing, error: readError } = await supabase
       .from('email_settings')
-      .update(row)
-      .eq('id', true)
-      .select('id')
+      .select('smtp_password_encrypted')
+      .maybeSingle()
+    if (readError) {
+      await logError('dashboard.saveEmailSettings.read', readError)
+      return { success: false, error: `No se pudo guardar: ${readError.message}` }
+    }
+    if (!existing?.smtp_password_encrypted) {
+      return { success: false, error: 'La contraseña es obligatoria la primera vez.' }
+    }
+
+    const { error } = await supabase.from('email_settings').update(row).eq('id', true)
     if (error) {
       await logError('dashboard.saveEmailSettings.update', error)
       return { success: false, error: `No se pudo guardar: ${error.message}` }
-    }
-    if (!data || data.length === 0) {
-      return { success: false, error: 'La contraseña es obligatoria la primera vez.' }
     }
   }
 
