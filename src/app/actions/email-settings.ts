@@ -59,6 +59,7 @@ interface SaveEmailSettingsInput {
   fromAddress: string
   fromName: string
   simulateSending: boolean
+  bypassRateLimit: boolean
 }
 
 export async function saveEmailSettings(input: SaveEmailSettingsInput) {
@@ -91,6 +92,7 @@ export async function saveEmailSettings(input: SaveEmailSettingsInput) {
     updated_at: new Date().toISOString(),
     updated_by: admin.email ?? null,
     simulate_sending: input.simulateSending === true,
+    bypass_rate_limit: input.bypassRateLimit === true,
   }
 
   if (input.password) {

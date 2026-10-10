@@ -126,6 +126,10 @@ create table if not exists public.email_settings (
 -- Sin fila (o sin cuenta en el entorno) la app simula siempre. Ver src/lib/email/settings.ts.
 alter table public.email_settings add column if not exists simulate_sending boolean not null default false;
 
+-- Modo revisión técnica: true = el formulario público NO aplica el rate limit por IP ni por email
+-- (Turnstile, honeypot y la unicidad siguen activos). Desactivar antes de operar con datos reales.
+alter table public.email_settings add column if not exists bypass_rate_limit boolean not null default false;
+
 -- 3d. AUTOMATIZACIÓN: email de bienvenida al registrarse un lead -------------
 --     null = pendiente; lo marca el "sistema" (service_role) desde la ruta
 --     /api/automation/lead-created.

@@ -24,7 +24,7 @@ export default async function SettingsPage() {
   // Se piden columnas explícitas: la contraseña cifrada nunca llega al cliente.
   const { data: settings, error } = await supabase
     .from('email_settings')
-    .select('smtp_host, smtp_port, smtp_user, from_address, from_name, simulate_sending, updated_at, updated_by')
+    .select('smtp_host, smtp_port, smtp_user, from_address, from_name, simulate_sending, bypass_rate_limit, updated_at, updated_by')
     .maybeSingle()
 
   if (error) await logError('dashboard.configuracion.query', error)
@@ -62,6 +62,7 @@ export default async function SettingsPage() {
               fromAddress: settings.from_address ?? '',
               fromName: settings.from_name ?? '',
               simulateSending: settings.simulate_sending,
+              bypassRateLimit: settings.bypass_rate_limit,
               updatedAt: settings.updated_at,
               updatedBy: settings.updated_by,
             }

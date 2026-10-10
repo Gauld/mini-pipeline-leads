@@ -25,6 +25,16 @@ export function clientIpFrom(headers: Headers): string {
 }
 
 /**
+ * ¿La configuración pide ignorar el límite de envíos? (modo de revisión técnica).
+ * Cerrado por defecto: cualquier valor distinto de `true` mantiene el límite.
+ */
+export function isRateLimitBypassed(
+  settings: { bypass_rate_limit?: boolean | null } | null | undefined
+): boolean {
+  return settings?.bypass_rate_limit === true
+}
+
+/**
  * Cuenta un intento en la ventana y dice si sigue dentro del límite.
  * Cerrado por defecto: si el contador falla, se deniega.
  */

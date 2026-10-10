@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { clientIpFrom, hashKey } from './rate-limit'
+import { clientIpFrom, hashKey, isRateLimitBypassed } from './rate-limit'
+
+describe('isRateLimitBypassed', () => {
+  it('solo se ignora el límite si la configuración lo pide de forma explícita (true)', () => {
+    expect(isRateLimitBypassed({ bypass_rate_limit: true })).toBe(true)
+  })
+
+  it('cerrado por defecto: sin fila, null, undefined o false mantienen el límite', () => {
+    expect(isRateLimitBypassed(null)).toBe(false)
+    expect(isRateLimitBypassed(undefined)).toBe(false)
+    expect(isRateLimitBypassed({})).toBe(false)
+    expect(isRateLimitBypassed({ bypass_rate_limit: null })).toBe(false)
+    expect(isRateLimitBypassed({ bypass_rate_limit: false })).toBe(false)
+  })
+
+  it('valores que no son el booleano true no cuentan', () => {
+    expect(isRateLimitBypassed({ bypass_rate_limit: 'true' as unknown as boolean })).toBe(false)
+    expect(isRateLimitBypassed({ bypass_rate_limit: 1 as unknown as boolean })).toBe(false)
+  })
+})
 
 describe('hashKey', () => {
   it('es determinista y depende de la sal', () => {

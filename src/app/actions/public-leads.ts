@@ -7,7 +7,7 @@ import { headers } from 'next/headers'
 import { parseLead } from '@/lib/leads/lead-schema'
 import { CONSENT_TEXT_VERSION } from '@/lib/leads/consent'
 import { verifyTurnstile } from '@/lib/security/turnstile'
-import { clientIpFrom, hashKey, withinRateLimit } from '@/lib/security/rate-limit'
+import { clientIpFrom, hashKey, isRateLimitBypassed, withinRateLimit } from '@/lib/security/rate-limit'
 import { logError } from '@/lib/logging/log-error'
 
 // Límites antiabuso.
@@ -42,11 +42,22 @@ export async function createLead(formData: FormData) {
   const rawEmail = String(formData.get('email') ?? '')
   try {
     const admin = createAdminClient()
-    const okIp = await withinRateLimit(admin, hashKey('ip', ip, salt), IP_MAX_PER_HOUR, 3600)
-    const okEmail = rawEmail.trim()
-      ? await withinRateLimit(admin, hashKey('email', rawEmail, salt), EMAIL_MAX_PER_DAY, 86400)
-      : true
-    if (!okIp || !okEmail) return { success: false, error: TOO_MANY }
+
+    // Modo revisión técnica (Panel > Configuración de email). Si no se puede leer el ajuste,
+    // se mantiene el límite: cerrado por defecto.
+    const { data: settings, error: settingsError } = await admin
+      .from('email_settings')
+      .select('bypass_rate_limit')
+      .maybeSingle()
+    if (settingsError) await logError('createLead.bypassSetting', settingsError)
+
+    if (!isRateLimitBypassed(settings)) {
+      const okIp = await withinRateLimit(admin, hashKey('ip', ip, salt), IP_MAX_PER_HOUR, 3600)
+      const okEmail = rawEmail.trim()
+        ? await withinRateLimit(admin, hashKey('email', rawEmail, salt), EMAIL_MAX_PER_DAY, 86400)
+        : true
+      if (!okIp || !okEmail) return { success: false, error: TOO_MANY }
+    }
   } catch (err) {
     await logError('createLead.rateLimit', err)
     return { success: false, error: GENERIC_ERROR }

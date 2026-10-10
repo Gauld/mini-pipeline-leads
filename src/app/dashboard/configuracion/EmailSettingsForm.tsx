@@ -10,6 +10,7 @@ interface Initial {
   fromAddress: string
   fromName: string
   simulateSending: boolean
+  bypassRateLimit: boolean
   updatedAt: string
   updatedBy: string | null
 }
@@ -25,6 +26,7 @@ export default function EmailSettingsForm({ initial }: { initial: Initial | null
   const [fromAddress, setFromAddress] = useState(initial?.fromAddress ?? '')
   const [fromName, setFromName] = useState(initial?.fromName ?? '')
   const [simulateSending, setSimulateSending] = useState(initial?.simulateSending ?? false)
+  const [bypassRateLimit, setBypassRateLimit] = useState(initial?.bypassRateLimit ?? false)
   const [hasPassword, setHasPassword] = useState(Boolean(initial))
   const [testTo, setTestTo] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -48,7 +50,16 @@ export default function EmailSettingsForm({ initial }: { initial: Initial | null
     e.preventDefault()
     setFeedback(null)
     startTransition(async () => {
-      const result = await saveEmailSettings({ host, port, user, password, fromAddress, fromName, simulateSending })
+      const result = await saveEmailSettings({
+        host,
+        port,
+        user,
+        password,
+        fromAddress,
+        fromName,
+        simulateSending,
+        bypassRateLimit,
+      })
       if (result.success) {
         setPassword('')
         setHasPassword(true)
@@ -76,6 +87,20 @@ export default function EmailSettingsForm({ initial }: { initial: Initial | null
               Mientras no guardes una cuenta, los envíos se simulan.
             </span>
           )}
+        </span>
+      </label>
+
+      <label className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <input
+          type="checkbox"
+          checked={bypassRateLimit}
+          onChange={(e) => setBypassRateLimit(e.target.checked)}
+          className="mt-0.5 h-4 w-4"
+        />
+        <span className="text-xs text-amber-900">
+          <strong>Ignorar límite de envíos</strong> — el formulario público no aplica el límite por IP ni por
+          email, para poder probar con más intentos durante la revisión técnica. Turnstile, honeypot y la
+          unicidad siguen activos. Desactívalo antes de operar con datos reales.
         </span>
       </label>
 
