@@ -497,17 +497,20 @@ create policy status_transitions_select on public.status_transitions
 
 -- Semilla (solo si la tabla está vacía, para no pisar lo que se haya editado a mano):
 -- Nuevo -> Contactado -> En seguimiento -> (Convertido | Perdido).
+-- Se empareja por NOMBRE (sin mayúsculas, por contenido) y no por slug: una base que ya tenía
+-- estados puede usar otros slugs, y entonces el join descartaba transiciones en silencio.
 insert into public.status_transitions (from_status_id, to_status_id)
 select f.id, t.id
 from (values
-  ('nuevo',          'contactado'),
-  ('contactado',     'en-seguimiento'),
-  ('en-seguimiento', 'convertido'),
-  ('en-seguimiento', 'perdido')
-) as v (from_slug, to_slug)
-join public.lead_statuses f on f.slug = v.from_slug
-join public.lead_statuses t on t.slug = v.to_slug
-where not exists (select 1 from public.status_transitions);
+  ('nuevo',       'contactado'),
+  ('contactado',  'seguimiento'),
+  ('seguimiento', 'convertido'),
+  ('seguimiento', 'perdido')
+) as v (from_name, to_name)
+join public.lead_statuses f on lower(f.name) like '%' || v.from_name || '%'
+join public.lead_statuses t on lower(t.name) like '%' || v.to_name || '%'
+where not exists (select 1 from public.status_transitions)
+on conflict do nothing;
 
 -- Aplica la regla en la base: la UI y la Server Action se pueden saltar (la anon key es pública y
 -- `authenticated` tiene UPDATE sobre status_id). Sin sesión de usuario (service_role, SQL Editor)
