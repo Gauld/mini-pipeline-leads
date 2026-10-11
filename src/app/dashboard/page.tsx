@@ -5,7 +5,7 @@ import { logout } from '@/app/actions/auth'
 import Link from 'next/link'
 import { filterLeads } from '@/lib/leads/filter-leads'
 import { logError } from '@/lib/logging/log-error'
-import { allowedTargetStatusIds, canManageEmail, canViewLeads } from '@/lib/leads/status-permissions'
+import { allowedTargetStatusIds, canConfigureEmail, canManageEmail, canViewLeads } from '@/lib/leads/status-permissions'
 import { loadRole } from '@/lib/auth/load-role'
 import { loadTransitions } from '@/lib/auth/load-transitions'
 import NoAccess from './NoAccess'
@@ -92,7 +92,7 @@ export default async function DashboardPage({
               Total Leads: {leads?.length || 0}
             </span>
 
-            {canManageEmail(role) && (
+            {canConfigureEmail(role) && (
               <>
                 <Link
                   href="/dashboard/plantillas"

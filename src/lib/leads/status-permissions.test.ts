@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   allowedTargetStatusIds,
   canChangeStatus,
+  canConfigureEmail,
   canManageEmail,
   canViewLeads,
   parseRole,
@@ -127,7 +128,16 @@ describe('canViewLeads', () => {
   })
 })
 
-describe('canManageEmail (seguimiento, plantillas y configuración de email)', () => {
+describe('canConfigureEmail (plantillas y configuración de email)', () => {
+  it('solo admin puede', () => {
+    expect(canConfigureEmail('admin')).toBe(true)
+    expect(canConfigureEmail('operator')).toBe(false)
+    expect(canConfigureEmail('viewer')).toBe(false)
+    expect(canConfigureEmail(null)).toBe(false)
+  })
+})
+
+describe('canManageEmail (envío de seguimientos)', () => {
   it('admin y operator pueden', () => {
     expect(canManageEmail('admin')).toBe(true)
     expect(canManageEmail('operator')).toBe(true)

@@ -632,33 +632,35 @@ create policy lead_history_select_admin on public.lead_history
   for select to authenticated
   using (public.current_app_role() in ('admin', 'operator', 'viewer'));
 
--- Plantillas: admin y operator. Una por estado (UNIQUE); se guardan con upsert.
+-- Plantillas: lectura admin y operator (el operator las usa al enviar seguimientos); escritura solo
+-- admin. Una por estado (UNIQUE); se guardan con upsert.
 create policy email_templates_select_admin on public.email_templates
   for select to authenticated
   using (public.current_app_role() in ('admin', 'operator'));
 
 create policy email_templates_insert_admin on public.email_templates
   for insert to authenticated
-  with check (public.current_app_role() in ('admin', 'operator'));
+  with check (public.current_app_role() = 'admin');
 
 create policy email_templates_update_admin on public.email_templates
   for update to authenticated
-  using (public.current_app_role() in ('admin', 'operator'))
-  with check (public.current_app_role() in ('admin', 'operator'));
+  using (public.current_app_role() = 'admin')
+  with check (public.current_app_role() = 'admin');
 
--- Configuración de email: admin y operator; anon no toca nada. Contenido sensible cifrado.
+-- Configuración de email: lectura admin y operator (el envío de seguimientos la necesita); escritura
+-- solo admin; anon no toca nada. Contenido sensible cifrado.
 create policy email_settings_select_admin on public.email_settings
   for select to authenticated
   using (public.current_app_role() in ('admin', 'operator'));
 
 create policy email_settings_insert_admin on public.email_settings
   for insert to authenticated
-  with check (public.current_app_role() in ('admin', 'operator'));
+  with check (public.current_app_role() = 'admin');
 
 create policy email_settings_update_admin on public.email_settings
   for update to authenticated
-  using (public.current_app_role() in ('admin', 'operator'))
-  with check (public.current_app_role() in ('admin', 'operator'));
+  using (public.current_app_role() = 'admin')
+  with check (public.current_app_role() = 'admin');
 
 -- Privilegios a nivel de tabla/columna (defensa en profundidad sobre RLS).
 revoke all on public.lead_statuses, public.target_oppositions, public.leads, public.lead_history,

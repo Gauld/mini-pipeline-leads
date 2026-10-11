@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { sendEmail } from '@/lib/email/send-email'
 import { loadEmailConfig } from '@/lib/email/load-config'
 import { interpretStatusUpdate, parseStatusChange } from '@/lib/leads/status-change'
-import { canChangeStatus, canManageEmail, canViewLeads } from '@/lib/leads/status-permissions'
+import { canChangeStatus, canConfigureEmail, canManageEmail, canViewLeads } from '@/lib/leads/status-permissions'
 import { loadRole } from '@/lib/auth/load-role'
 import { loadTransitions } from '@/lib/auth/load-transitions'
 
@@ -177,7 +177,7 @@ export async function saveEmailTemplate(statusId: string, subject: string, body:
     return { success: false, error: 'No autorizado: Debes iniciar sesión como administrador.' }
   }
 
-  if (!canManageEmail(await loadRole(supabase, user.id))) {
+  if (!canConfigureEmail(await loadRole(supabase, user.id))) {
     return { success: false, error: NO_PERMISSION }
   }
 

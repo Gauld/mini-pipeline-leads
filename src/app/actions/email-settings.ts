@@ -8,7 +8,7 @@ import { loadEmailConfig } from '@/lib/email/load-config'
 import { sendEmail } from '@/lib/email/send-email'
 import { allowInternalSmtp, resolveSafeSmtpTarget } from '@/lib/security/safe-smtp-target'
 import { logError } from '@/lib/logging/log-error'
-import { canManageEmail } from '@/lib/leads/status-permissions'
+import { canConfigureEmail } from '@/lib/leads/status-permissions'
 import { loadRole } from '@/lib/auth/load-role'
 
 const NO_PERMISSION = 'No tienes permiso para esta acción.'
@@ -32,7 +32,7 @@ export async function sendTestEmail(to: string) {
     return { success: false, error: 'No autorizado: Debes iniciar sesión como administrador.' }
   }
 
-  if (!canManageEmail(await loadRole(supabase, user.id))) {
+  if (!canConfigureEmail(await loadRole(supabase, user.id))) {
     return { success: false, error: NO_PERMISSION }
   }
 
@@ -86,7 +86,7 @@ export async function saveEmailSettings(input: SaveEmailSettingsInput) {
     return { success: false, error: 'No autorizado: Debes iniciar sesión como administrador.' }
   }
 
-  if (!canManageEmail(await loadRole(supabase, admin.id))) {
+  if (!canConfigureEmail(await loadRole(supabase, admin.id))) {
     return { success: false, error: NO_PERMISSION }
   }
 

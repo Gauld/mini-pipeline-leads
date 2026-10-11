@@ -2,9 +2,10 @@
 // (enforce_status_transition, supabase/schema.sql) aplican la misma regla.
 
 // Roles (tabla user_roles). Sin fila => sin rol => sin ningún permiso, tampoco de consulta.
-//   admin    : consulta, cambia el estado a cualquiera y gestiona el email.
+//   admin    : consulta, cambia el estado a cualquiera, envía seguimientos y configura el email
+//              (plantillas y SMTP).
 //   operator : consulta, cambia el estado solo siguiendo las transiciones definidas
-//              (tabla status_transitions) y gestiona el email.
+//              (tabla status_transitions) y envía seguimientos; no configura el email.
 //   viewer   : solo consulta.
 export type AppRole = 'admin' | 'operator' | 'viewer'
 
@@ -28,9 +29,14 @@ export function canViewLeads(role: AppRole | null): boolean {
   return role !== null
 }
 
-/** Enviar seguimientos y editar plantillas y la configuración de email. */
+/** Enviar seguimientos de email. */
 export function canManageEmail(role: AppRole | null): boolean {
   return role === 'admin' || role === 'operator'
+}
+
+/** Editar plantillas y configuración de email (SMTP). Solo admin. */
+export function canConfigureEmail(role: AppRole | null): boolean {
+  return role === 'admin'
 }
 
 /**
