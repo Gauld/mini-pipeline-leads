@@ -18,6 +18,9 @@ export const instant = false
 const firstValue = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) ?? ''
 
+// Estados finales del pipeline: arrancan colapsados para no tapar el trabajo diario.
+const TERMINAL_STATUS_SLUGS = new Set(['convertido', 'perdido'])
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -73,6 +76,14 @@ export default async function DashboardPage({
 
   const filteredLeads = filterLeads(leads ?? [], { statusId, name, email, phone })
   const hasFilters = Boolean(statusId || name || email || phone)
+
+  // Un grupo por estado, en orden de pipeline (position). Con filtro de estado queda uno solo.
+  const groups = (statuses ?? [])
+    .filter((status) => !statusId || status.id === statusId)
+    .map((status) => ({
+      status,
+      leads: filteredLeads.filter((lead) => lead.status_id === status.id),
+    }))
 
   return (
     <div className="min-h-screen bg-slate-100 p-8">
@@ -184,7 +195,26 @@ export default async function DashboardPage({
           Mostrando {filteredLeads.length} de {leads?.length || 0}
         </p>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <div className="space-y-4">
+          {groups.map(({ status, leads: groupLeads }) => (
+            <details
+              key={status.id}
+              open={Boolean(statusId) || !TERMINAL_STATUS_SLUGS.has(status.slug) || undefined}
+              className="group rounded-xl border border-slate-200 bg-white"
+            >
+              <summary className="flex cursor-pointer select-none items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-800">
+                <span
+                  aria-hidden
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: status.color ?? '#6B7280' }}
+                />
+                {status.name}
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {groupLeads.length}
+                </span>
+              </summary>
+
+              <div className="overflow-x-auto border-t border-slate-200">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
@@ -198,7 +228,7 @@ export default async function DashboardPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredLeads.length === 0 && (
+              {groupLeads.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                     Sin leads
@@ -206,7 +236,7 @@ export default async function DashboardPage({
                 </tr>
               )}
 
-              {filteredLeads.map((lead) => (
+              {groupLeads.map((lead) => (
                 <tr key={lead.id} className="align-middle">
                   <td className="px-4 py-3 font-medium text-slate-900">{lead.full_name}</td>
                   <td className="px-4 py-3 text-slate-600 break-all">{lead.email}</td>
@@ -250,6 +280,9 @@ export default async function DashboardPage({
               ))}
             </tbody>
           </table>
+              </div>
+            </details>
+          ))}
         </div>
       </div>
     </div>
