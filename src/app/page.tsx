@@ -18,7 +18,7 @@ export default async function LeadFormPage() {
 
   return (
     <main className="public-theme page page-center">
-      <div className="card">
+      <div className="card max-w-xl">
         <h1 className="page-title">Solicitar Información</h1>
         <p className="page-subtitle">
           Déjanos tus datos y te asesoraremos sobre la oposición de tu interés.
