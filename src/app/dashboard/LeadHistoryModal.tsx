@@ -56,7 +56,7 @@ export default function LeadHistoryModal({ leadId, leadName, statuses }: LeadHis
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200 text-left">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-200 text-left">
             {/* Cabecera */}
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <div>
@@ -100,9 +100,9 @@ export default function LeadHistoryModal({ leadId, leadName, statuses }: LeadHis
                         {/* Indicador en la línea de tiempo */}
                         <span className="absolute -left-[31px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-white" />
 
-                        <div className="flex justify-between items-start mb-1">
+                        <div className="flex justify-between items-start gap-4 mb-1">
                           <span className="text-xs font-semibold text-slate-800">{item.action}</span>
-                          <span className="text-[11px] text-slate-400">
+                          <span className="text-[11px] text-slate-400 whitespace-nowrap shrink-0">
                             {new Date(item.created_at).toLocaleString('es-ES', {
                               day: '2-digit',
                               month: 'short',
