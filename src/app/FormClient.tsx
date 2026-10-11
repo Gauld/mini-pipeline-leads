@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import Script from 'next/script'
 import { LEGAL } from '@/lib/legal/company'
 import { TargetOpposition } from '@/types'
@@ -30,12 +31,13 @@ interface FormClientProps {
 export default function FormClient({ oppositions, createLead }: FormClientProps) {
   const [loading, setLoading] = useState(false)
   const [selectedOpposition, setSelectedOpposition] = useState('')
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoading(true)
-    setMessage(null)
+    setError(null)
 
     const formData = new FormData(event.currentTarget)
     const result = await createLead(formData)
@@ -44,28 +46,17 @@ export default function FormClient({ oppositions, createLead }: FormClientProps)
     // El token de Turnstile es de un solo uso: hay que pedir otro tras cada intento.
     window.turnstile?.reset()
 
-    if (result.success && result.alreadyRegistered) {
-      setMessage({ type: 'success', text: 'Esta solicitud ya está en revisión. Nos pondremos en contacto contigo pronto.' })
-      setSelectedOpposition('')
-      ;(event.target as HTMLFormElement).reset()
-    } else if (result.success) {
-      setMessage({ type: 'success', text: '¡Solicitud enviada con éxito! Nos pondremos en contacto contigo pronto.' })
-      setSelectedOpposition('')
-      ;(event.target as HTMLFormElement).reset()
+    // Éxito y "ya está en revisión" van a una página propia con el aviso centrado.
+    if (result.success) {
+      router.push(`/solicitud?estado=${result.alreadyRegistered ? 'revision' : 'enviada'}`)
     } else {
-      setMessage({ type: 'error', text: result.error || 'Ocurrió un error al enviar tus datos.' })
+      setError(result.error || 'Ocurrió un error al enviar tus datos.')
     }
   }
 
   return (
     <>
-      {message && (
-        <div
-          className={`alert ${message.type === 'success' ? 'alert-success' : 'alert-error'}`}
-        >
-          {message.text}
-        </div>
-      )}
+      {error && <div className="alert alert-error">{error}</div>}
 
       <form onSubmit={handleSubmit} className="form-stack">
         <p className="form-hint">
