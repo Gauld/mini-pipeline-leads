@@ -90,11 +90,12 @@ export async function createLead(formData: FormData) {
     }
   }
 
-  // 5. Registrar el lead. La auditoría inicial la escribe el trigger
-  // trg_lead_created (supabase/schema.sql). Sin .select(): anon no puede leer leads.
+  // 5. Registrar el lead con service_role: anon NO tiene INSERT en leads (supabase/schema.sql),
+  // así que nadie puede saltarse Turnstile, rate limit y validación con la anon key pública.
+  // La auditoría inicial la escribe el trigger trg_lead_created. Sin .select(): no hace falta leer.
   // La hora del consentimiento la pone el servidor, nunca el cliente.
   const now = new Date().toISOString()
-  const { error: leadError } = await supabase.from('leads').insert({
+  const { error: leadError } = await createAdminClient().from('leads').insert({
     ...parsed.data,
     status_id: initialStatus.id,
     consent_privacy_at: now,

@@ -608,10 +608,9 @@ create policy lead_statuses_select on public.lead_statuses
 create policy target_oppositions_select on public.target_oppositions
   for select to anon, authenticated using (is_active);
 
--- Leads: el público solo puede INSERTAR, y siempre en el estado inicial.
-create policy leads_insert_public on public.leads
-  for insert to anon, authenticated
-  with check (status_id = (select id from public.lead_statuses where position = 1 limit 1));
+-- Leads: NADIE inserta con la anon key. Solo el servidor (service_role, que salta RLS) crea
+-- leads desde la Server Action createLead, tras Turnstile, honeypot, rate limit y validación.
+-- Si anon pudiera insertar, bastaría un POST a PostgREST para saltarse todo eso.
 
 -- Todas las políticas de abajo exigen ROL (public.current_app_role(), sección 4a): un usuario
 -- autenticado sin fila en user_roles no puede leer ni escribir nada.
@@ -674,7 +673,7 @@ grant select, insert, update on public.email_settings to authenticated;
 grant select, insert, update on public.email_templates to authenticated;
 
 grant select on public.lead_statuses, public.target_oppositions to anon, authenticated;
-grant insert on public.leads to anon, authenticated;
+grant insert on public.leads to service_role;
 grant select on public.leads to authenticated;
 grant update (status_id) on public.leads to authenticated;   -- solo se puede cambiar el estado
 grant select on public.lead_history to authenticated;
